@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using Messages.Client;
 using Mirror;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ public class OpenBookIDNetMessage : ClientMessage
 	{
 		var admin = PlayerList.Instance.GetAdmin(AdminId, AdminToken);
 		if (admin == null) return;
-		VariableViewer.RequestSendBook(BookID);
+		VariableViewer.RequestSendBook(BookID, SentByPlayer.GameObject);
 	}
 
 

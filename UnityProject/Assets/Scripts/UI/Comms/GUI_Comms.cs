@@ -58,12 +58,13 @@ public class GUI_Comms : NetTab
 	{
 		string FormatTime( int timerSeconds )
 		{
-			if ( shuttle.Status == ShuttleStatus.DockedCentcom || shuttle.Status == ShuttleStatus.DockedStation )
+			if (shuttle.Status == EscapeShuttleStatus.DockedCentcom ||
+				shuttle.Status == EscapeShuttleStatus.DockedStation)
 			{
 				return string.Empty;
 			}
 
-			return "ETA: " + TimeSpan.FromSeconds( timerSeconds ).ToString( "mm\\:ss" );
+			return "ETA: " + TimeSpan.FromSeconds(timerSeconds).ToString("mm\\:ss");
 		}
 
 		while (Provider == null)
@@ -75,29 +76,32 @@ public class GUI_Comms : NetTab
 
 		//starting up, setting appropriate labels
 		ProcessIdChange(console.IdCard);
-		console.OnServerIDCardChanged.AddListener( ProcessIdChange );
+		console.OnServerIDCardChanged.AddListener(ProcessIdChange);
 		shuttle = GameManager.Instance.PrimaryEscapeShuttle;
 
-		shuttleStatusLabel.SetValue = shuttle.Status.ToString();
-		statusImage.SetComplicatedValue( "shuttle_status", (int)shuttle.Status );
-		shuttle.OnShuttleUpdate.AddListener( status =>
+		shuttleStatusLabel.SetValueServer(shuttle.Status.ToString());
+		statusImage.SetSprite((int) shuttle.Status);
+		shuttle.OnShuttleUpdate.AddListener(status =>
 		{
-			statusImage.SetComplicatedValue( "shuttle_status", (int)status );
-			shuttleStatusLabel.SetValue = status.ToString();
-		} );
+			statusImage.SetSprite((int) shuttle.Status);
+			shuttleStatusLabel.SetValueServer(status.ToString());
+		});
 
-		shuttleTimerLabel.SetValue = FormatTime( shuttle.CurrentTimerSeconds );
-		shuttle.OnTimerUpdate.AddListener( timerSeconds =>{ shuttleTimerLabel.SetValue = FormatTime( timerSeconds ); } );
+		shuttleTimerLabel.SetValueServer(FormatTime(shuttle.CurrentTimerSeconds));
+		shuttle.OnTimerUpdate.AddListener( timerSeconds =>
+		{
+			shuttleTimerLabel.SetValueServer(FormatTime(timerSeconds));
+		});
 
 		RefreshCallButtonText();
 
-		Logger.Log( nameof(WaitForProvider), Category.NetUI );
+		Logger.Log(nameof(WaitForProvider), Category.NetUI);
 	}
 
-	private void ProcessIdChange( IDCard newId = null )
+	private void ProcessIdChange(IDCard newId = null)
 	{
 		UpdateIdTexts();
-		if ( newId != null )
+		if (newId != null)
 		{
 			LogIn();
 		}
@@ -111,9 +115,9 @@ public class GUI_Comms : NetTab
 	{
 		Logger.Log( nameof(CallOrRecallShuttle), Category.NetUI );
 
-		bool isRecall = shuttle.Status == ShuttleStatus.OnRouteStation;
+		bool isRecall = shuttle.Status == EscapeShuttleStatus.OnRouteStation;
 
-		
+
 
 		string callResult;
 		bool ok;
@@ -156,22 +160,20 @@ public class GUI_Comms : NetTab
 
 	private void RefreshCallButtonText()
 	{
-		shuttleCallButtonLabel.SetValue =
-			shuttle.Status == ShuttleStatus.OnRouteStation ? "Recall Emergency Shuttle" : "Call Emergency Shuttle";
+		shuttleCallButtonLabel.SetValueServer(shuttle.Status == EscapeShuttleStatus.OnRouteStation ? "Recall Emergency Shuttle" : "Call Emergency Shuttle");
 	}
 
 	private IEnumerator ShowSubmitResult( string callResult )
 	{
-		shuttleCallResultLabel.SetValue = callResult;
+		shuttleCallResultLabel.SetValueServer(callResult);
 		yield return WaitFor.Seconds( 3 );
-		shuttleCallResultLabel.SetValue = String.Empty;
+		shuttleCallResultLabel.SetValueServer(String.Empty);
 	}
 
 	public void SetStatusDisplay(string text)
 	{
 		Logger.Log( nameof(SetStatusDisplay), Category.NetUI );
-		GameManager.Instance.CentComm.OnStatusDisplayUpdate
-			.Invoke( StatusDisplayChannel.Command, text.Substring( 0,Mathf.Min(text.Length, 50) ) );
+		GameManager.Instance.CentComm.UpdateStatusDisplay(StatusDisplayChannel.Command, text.Substring( 0,Mathf.Min(text.Length, 50)));
 		OpenMenu();
 	}
 	public void MakeAnAnnouncement(string text)
@@ -187,11 +189,11 @@ public class GUI_Comms : NetTab
 		}
 		OpenMenu();
 	}
-	
+
 	public void UpdateAlertLevelLabels()
 	{
-		CurrentAlertLevelLabel.SetValue = GameManager.Instance.CentComm.CurrentAlertLevel.ToString().ToUpper();
-		NewAlertLevelLabel.SetValue = LocalAlertLevel.ToString().ToUpper();
+		CurrentAlertLevelLabel.SetValueServer(GameManager.Instance.CentComm.CurrentAlertLevel.ToString().ToUpper());
+		NewAlertLevelLabel.SetValueServer(LocalAlertLevel.ToString().ToUpper());
 	}
 	public void ChangeAlertLevel()
 	{
@@ -211,15 +213,15 @@ public class GUI_Comms : NetTab
 
 	IEnumerator DisplayAlertErrorMessage(string text)
 	{
-		AlertErrorLabel.SetValue = text;
+		AlertErrorLabel.SetValueServer(text);
 		for (int _i = 0; _i < 5; _i++)
 		{
 			yield return WaitFor.Seconds(1);
-			AlertErrorLabel.SetValue = "";
+			AlertErrorLabel.SetValueServer("");
 			yield return WaitFor.Seconds(1);
-			AlertErrorLabel.SetValue = text;
+			AlertErrorLabel.SetValueServer(text);
 		}
-		AlertErrorLabel.SetValue = "";
+		AlertErrorLabel.SetValueServer("");
 		yield break;
 	}
 
@@ -250,11 +252,11 @@ public class GUI_Comms : NetTab
 		var IdCard = console.IdCard;
 		if (IdCard)
 		{
-			idLabel.SetValue = $"{IdCard.RegisteredName}, {IdCard.JobType.ToString()}";
+			idLabel.SetValueServer($"{IdCard.RegisteredName}, {IdCard.JobType.ToString()}");
 		}
 		else
 		{
-			idLabel.SetValue = "<No ID inserted>";
+			idLabel.SetValueServer("<No ID inserted>");
 		}
 	}
 
@@ -267,7 +269,7 @@ public class GUI_Comms : NetTab
 
 		if ( !console.IdCard.HasAccess(Access.heads) )
 		{
-			idLabel.SetValue = idLabel.Value + " (No access)";
+			idLabel.SetValueServer(idLabel.Value + " (No access)");
 			return;
 		}
 
@@ -286,10 +288,5 @@ public class GUI_Comms : NetTab
 	public void OpenMenu()
 	{
 		mainSwitcher.SetActivePage(menuPage);
-	}
-
-	public void CloseTab()
-	{
-		ControlTabs.CloseTab(Type, Provider);
 	}
 }

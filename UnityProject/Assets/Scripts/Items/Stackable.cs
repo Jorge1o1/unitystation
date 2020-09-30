@@ -13,6 +13,7 @@ public class Stackable : NetworkBehaviour, IServerLifecycle, ICheckedInteractabl
 	[Tooltip("Amount initially in the stack when this is spawned.")]
 	[SerializeField]
 	private int initialAmount = 1;
+	public int InitialAmount => initialAmount;
 
 	[Tooltip("Max amount allowed in the stack.")]
 	[SerializeField]
@@ -30,6 +31,8 @@ public class Stackable : NetworkBehaviour, IServerLifecycle, ICheckedInteractabl
 	public int Amount => amount;
 
 	public int MaxAmount => maxAmount;
+
+	public int SpareCapacity => MaxAmount - Amount;
 
 	/// <summary>
 	/// amount currently in the stack
@@ -109,7 +112,13 @@ public class Stackable : NetworkBehaviour, IServerLifecycle, ICheckedInteractabl
 		InitStacksWith();
 		SyncAmount(amount, initialAmount);
 		amountInit = true;
+
 		//check for stacking with things on the ground
+		registerTile.WaitForMatrixInit(OnMatrixInit);
+	}
+
+	private void OnMatrixInit(MatrixInfo info)
+	{
 		ServerStackOnGround(registerTile.LocalPositionServer);
 	}
 
@@ -121,6 +130,7 @@ public class Stackable : NetworkBehaviour, IServerLifecycle, ICheckedInteractabl
 
 	private void ServerStackOnGround(Vector3Int localPosition)
 	{
+		if (registerTile?.Matrix == null) return;
 		//stacks with things on the same tile
 		foreach (var stackable in registerTile.Matrix.Get<Stackable>(localPosition, true))
 		{
@@ -146,48 +156,57 @@ public class Stackable : NetworkBehaviour, IServerLifecycle, ICheckedInteractabl
 	/// Consumes the specified amount of quantity from this stack. Despawns if entirely consumed.
 	/// Does nothing if consumed is greater than the amount in this stack.
 	/// </summary>
-	/// <param name="consumed"></param>
+	/// <param name="consumed">Amount to consume</param>
+	/// <returns>If stackable contained enough stacks and they were consumed</returns>
 	[Server]
-	public void ServerConsume(int consumed)
+	public bool ServerConsume(int consumed)
 	{
 		if (consumed > amount)
 		{
-			Logger.LogErrorFormat("Consumed amount {0} is greater than amount in this stack {1}, will not consume.",
-				 Category.Inventory, consumed, amount);
-			return;
+			Logger.LogErrorFormat("Consumed amount {0} is greater than amount in this stack {1}, will not consume.", Category.Inventory, consumed, amount);
+			return false;
 		}
 		SyncAmount(amount, amount - consumed);
 		if (amount <= 0)
 		{
 			Despawn.ServerSingle(gameObject);
 		}
+		return true;
 	}
 
 	/// <summary>
 	/// Increments the amount by a specified quantity, does not go above the max.
-	/// Do not perform if max is already reached.
+	/// Cannot be used to reduce stacks
 	/// </summary>
-	/// <param name="increase"></param>
+	/// <param name="increase">Amount to add</param>
+	/// <returns>The remaining number of stacks which could not fit in the stackable</returns>
 	[Server]
-	public void ServerIncrease(int increase)
+	public int ServerIncrease(int increase)
 	{
-		if (amount == maxAmount)
-			return;
+		if (increase == 0)
+		{
+			return 0;
+		}
 
-		if (increase > maxAmount)
+		if (increase < 0)
+		{
+			Logger.LogErrorFormat("Attempted to increase stacks by a negative value, ignored", Category.Inventory);
+			return 0;
+		}
+
+		int overflow = increase - SpareCapacity;
+
+		if (overflow > 0)
 		{
 			Logger.LogErrorFormat("Increased amount {0} will overfill stack, filled to max",
 				 Category.Inventory, increase);
+
+			SyncAmount(amount, MaxAmount);
+			return overflow;
 		}
 
-		int add = increase;
-		if (amount + increase > maxAmount)
-		{
-			//If increase would push stack above maximum amount, make add equal the difference
-			//to reach max stack.
-			add = increase+amount-maxAmount;
-		}
-		SyncAmount(amount, amount + add);
+		SyncAmount(amount, amount + increase);
+		return 0;
 	}
 
 	/// <summary>
@@ -214,20 +233,21 @@ public class Stackable : NetworkBehaviour, IServerLifecycle, ICheckedInteractabl
 	/// </summary>
 	/// <param name="toAdd"></param>
 	[Server]
-	public void ServerCombine(Stackable toAdd)
+	public int ServerCombine(Stackable toAdd)
 	{
 		if (!StacksWith(toAdd))
 		{
 			Logger.LogErrorFormat("toAdd {0} doesn't stack with this {2}, cannot combine. Consider adding" +
 			                      " this prefab to stacksWith if these really should be stackable.",
 				Category.Inventory, toAdd, this);
-			return;
+			return 0;
 		}
-		var amountToConsume = Math.Min(toAdd.amount, maxAmount - amount);
-		if (amountToConsume <= 0) return;
+		var amountToConsume = Math.Min(toAdd.amount, SpareCapacity);
+		if (amountToConsume <= 0) return 0;
 		Logger.LogTraceFormat("Combining {0} <- {1}", Category.Inventory, GetInstanceID(), toAdd.GetInstanceID());
 		toAdd.ServerConsume(amountToConsume);
 		SyncAmount(amount, amount + amountToConsume);
+		return amountToConsume;
 	}
 
 	/// <summary>
@@ -291,6 +311,7 @@ public class Stackable : NetworkBehaviour, IServerLifecycle, ICheckedInteractabl
 		{
 			//spawn a new one and put it into the from slot with a stack size of 1
 			var single = Spawn.ServerPrefab(prefab).GameObject;
+			if (single == null || single.GetComponent<Stackable>() == null) return;
 			single.GetComponent<Stackable>().SyncAmount(amount, 1);
 			Inventory.ServerAdd(single, interaction.FromSlot);
 			ServerConsume(1);

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Initialisation;
 using UnityEngine;
 
 public static class TilePaths
@@ -16,7 +17,9 @@ public static class TilePaths
 		{TileType.Grill, "Tiles/Objects"}, // TODO remove
 		{TileType.Object, "Tiles/Objects"},
 		{TileType.WindowDamaged, "Tiles/WindowDamage"},
-		{TileType.Effects, "Tiles/Effects"}
+		{TileType.Effects, "Tiles/Effects"},
+		{TileType.UnderFloor, "Tiles/UnderFloors"},
+		{TileType.ElectricalCable, "Tiles/Electrical"}
 	};
 
 	public static string Get(TileType type)
@@ -33,7 +36,7 @@ public class TilePathEntry
 	public List<LayerTile> layerTiles = new List<LayerTile>();
 }
 
-public class TileManager : MonoBehaviour
+public class TileManager : MonoBehaviour, IInitialise
 {
 	private static TileManager tileManager;
 
@@ -60,7 +63,9 @@ public class TileManager : MonoBehaviour
 
 	[SerializeField] private List<TilePathEntry> layerTileCollections = new List<TilePathEntry>();
 
-	private void Start()
+	public InitialisationSystems Subsystem => InitialisationSystems.TileManager;
+
+	void IInitialise.Initialise()
 	{
 #if UNITY_EDITOR
 		CacheAllAssets();
@@ -70,6 +75,7 @@ public class TileManager : MonoBehaviour
 			StartCoroutine(LoadAllTiles(true));
 		}
 	}
+
 
 	[ContextMenu("Cache All Assets")]
 	public bool CacheAllAssets()
@@ -102,6 +108,7 @@ public class TileManager : MonoBehaviour
 			tilesToLoad += type.layerTiles.Count;
 		}
 
+		int objCounts = 0;
 		foreach (var type in layerTileCollections)
 		{
 			if (!tiles.ContainsKey(type.tileType))
@@ -120,9 +127,26 @@ public class TileManager : MonoBehaviour
 					}
 				}
 
-				if (staggeredload) yield return WaitFor.EndOfFrame;
+				if (staggeredload)
+				{
+					objCounts++;
+					if (objCounts >= 10)
+					{
+						objCounts = 0;
+						yield return WaitFor.EndOfFrame;
+					}
+				}
 			}
-			if (staggeredload) yield return WaitFor.EndOfFrame;
+
+			if (staggeredload)
+			{
+				objCounts++;
+				if (objCounts >= 10)
+				{
+					objCounts = 0;
+					yield return WaitFor.EndOfFrame;
+				}
+			}
 		}
 
 		initialized = true;

@@ -34,7 +34,7 @@ public class GUI_NukeOps : MonoBehaviour
 		}
 		else
 		{
-			nukeOpsbtn.interactable = true;;
+			nukeOpsbtn.interactable = true;
 			return true;
 		}
 	}
@@ -53,7 +53,7 @@ public class GUI_NukeOps : MonoBehaviour
 
 	public void SyndieBtn()
 	{
-		PlayerManager.LocalViewerScript.CmdRequestJob(JobType.SYNDICATE, PlayerManager.CurrentCharacterSettings);
+		PlayerManager.LocalViewerScript.RequestJob(JobType.SYNDICATE);
 		gameObject.SetActive(false);
 	}
 }

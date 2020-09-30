@@ -7,6 +7,11 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1973002661359593264, guid: aab6051d13dac4be8a3ca172d9b74051,
+        type: 3}
+      propertyPath: bodyPartsCovered
+      value: 240
+      objectReference: {fileID: 0}
     - target: {fileID: 2909197017712554513, guid: aab6051d13dac4be8a3ca172d9b74051,
         type: 3}
       propertyPath: m_AssetId
@@ -15,7 +20,7 @@ PrefabInstance:
     - target: {fileID: 3011710637427380133, guid: aab6051d13dac4be8a3ca172d9b74051,
         type: 3}
       propertyPath: m_Name
-      value: VirologistJumpskirt
+      value: VirologistsJumpskirt
       objectReference: {fileID: 0}
     - target: {fileID: 3015227012818907857, guid: aab6051d13dac4be8a3ca172d9b74051,
         type: 3}
@@ -88,6 +93,12 @@ PrefabInstance:
       propertyPath: clothData
       value: 
       objectReference: {fileID: 11400000, guid: 58d1eed00697ec94aa3e17e277320932,
+        type: 2}
+    - target: {fileID: 8975007657035133986, guid: aab6051d13dac4be8a3ca172d9b74051,
+        type: 3}
+      propertyPath: PresentSpriteSet
+      value: 
+      objectReference: {fileID: 11400000, guid: 1fbbdf70c5eda5548ad32c37e9e2ac4a,
         type: 2}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: aab6051d13dac4be8a3ca172d9b74051, type: 3}

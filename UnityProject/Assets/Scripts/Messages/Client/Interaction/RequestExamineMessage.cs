@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Messages.Client;
 using Mirror;
 using UnityEngine;
 
@@ -29,6 +30,8 @@ public class RequestExamineMessage : ClientMessage
 		}
 
 		LoadNetworkObject(examineTarget);
+
+		if (NetworkObject == null) return;
 		// Here we build the message to send, by looking at the target's components.
 		// anyone extending IExaminable gets a say in it.
 		// Look for examinables.
@@ -36,13 +39,17 @@ public class RequestExamineMessage : ClientMessage
 		string msg = "";
 		IExaminable examinable;
 
-		for (int i = 0; i < examinables.Count(); i++)
+		for (int i = 0; i < examinables.Length; i++)
 		{
 			examinable = examinables[i];
 
-			msg += $"{examinable.Examine(mousePosition)}";
+			var examinableMsg = examinable.Examine(mousePosition);
+			if (string.IsNullOrEmpty(examinableMsg))
+				continue;
 
-			if (i != examinables.Count() - 1)
+			msg += examinableMsg;
+
+			if (i != examinables.Length - 1)
 			{
 				msg += "\n";
 			}

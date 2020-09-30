@@ -1,6 +1,7 @@
 
 using System.Collections;
 using System.Collections.Generic;
+using GameModes;
 using UnityEngine;
 
 /// <summary>
@@ -123,5 +124,31 @@ public partial class GameManager
 	public bool TrySpawnAntag(PlayerSpawnRequest spawnRequest)
 	{
 		return GameMode.TrySpawnAntag(spawnRequest);
+	}
+
+	/// <summary>
+	/// Waits before starting the game mode (to stop players being spawned in before everything has initialised)
+	/// </summary>
+	private IEnumerator WaitToStartGameMode()
+	{
+		yield return WaitFor.EndOfFrame;
+
+		foreach (var job in GameMode.PossibleAntags)
+		{
+			if (job.AntagOccupation == null) continue;
+
+			// We wait an extra frame after loading each additional scene so that MatrixInfo is ready for player spawning.
+			// If MatrixInfo is not ready, players that spawn in the additional scenes (wizard ship, syndicate base)
+			// will spawn on the wrong matrix and so will exhibit space exposure symptoms.
+
+			if (job.AntagOccupation.JobType == JobType.SYNDICATE)
+			{
+				yield return StartCoroutine(SubSceneManager.Instance.LoadSyndicate());
+				yield return WaitFor.EndOfFrame;
+				break;
+			}
+		}
+
+		GameMode.StartRound();
 	}
 }

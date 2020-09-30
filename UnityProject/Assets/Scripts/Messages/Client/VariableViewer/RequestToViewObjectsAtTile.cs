@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using Messages.Client;
 using Mirror;
 using UnityEngine;
 
@@ -18,7 +19,8 @@ public class RequestToViewObjectsAtTile : ClientMessage
 	{
 		var admin = PlayerList.Instance.GetAdmin(AdminId, AdminToken);
 		if (admin == null) return;
-		VariableViewer.ProcessTile(Location);
+
+		VariableViewer.ProcessTile(Location,SentByPlayer.GameObject);
 	}
 
 	public static RequestToViewObjectsAtTile Send(Vector3 _Location, string adminId, string adminToken)

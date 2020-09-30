@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using DatabaseAPI;
 using UnityEngine;
@@ -15,7 +14,7 @@ namespace AdminTools
 		{
 			if (adminTools == null)
 			{
-				adminTools = FindObjectOfType<GUI_AdminTools>();
+				adminTools = FindObjectOfType<GUI_AdminTools>(); // TODO This causes a ~80ms frame hitch when the page is opened.
 			}
 			RefreshPage();
 		}
@@ -30,6 +29,7 @@ namespace AdminTools
 			currentData = adminPageData;
 			adminTools.RefreshOnlinePlayerList(adminPageData);
 			adminTools.CloseRetrievingDataScreen();
+
 		}
 	}
 
@@ -41,6 +41,19 @@ namespace AdminTools
 		public string currentGameMode;
 		public bool isSecret;
 		public string nextGameMode;
+
+		//Event Manager Updates:
+		public bool randomEventsAllowed;
+
+		//Round Manager
+		public string nextMap;
+		public string nextAwaySite;
+		public bool allowLavaLand;
+		public string alertLevel;
+
+		//Centcom
+		public bool blockCall;
+		public bool blockRecall;
 
 		//Player Management:
 		public List<AdminPlayerEntryData> players = new List<AdminPlayerEntryData>();

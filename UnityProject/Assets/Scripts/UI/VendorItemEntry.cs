@@ -8,7 +8,8 @@ public class VendorItemEntry : DynamicEntry
 	private Color regularColor = Color.gray;
 	[SerializeField]
 	private Color emptyStockColor = Color.red;
-	private VendorItem vendorItem;
+	[HideInInspector]
+	public VendorItem vendorItem;
 	private GUI_Vendor vendorWindow;
 	[SerializeField]
 	private NetLabel itemName = null;
@@ -23,25 +24,44 @@ public class VendorItemEntry : DynamicEntry
 	{
 		vendorItem = item;
 		vendorWindow = correspondingWindow;
-		itemName.SetValue = vendorItem.Item.name;
-		itemIcon.SetValue = vendorItem.Item.name;
-		itemCount.SetValue = $"({vendorItem.Stock.ToString()})";
-		if (vendorItem.Stock <= 0)
+
+		var itemGO = vendorItem.Item;
+
+		if (itemGO != null)
 		{
-			itemBackground.SetValue = ColorUtility.ToHtmlStringRGB(emptyStockColor);
+			// TODO This is unused. What was it for? Is this why soda machine entries are just called Drinking glass? (Issue #4942)
+			// I've just moved the line around to stop the NRE.
+			var itemAttr = itemGO.GetComponent<ItemAttributesV2>();
 		}
 		else
 		{
-			itemBackground.SetValue = ColorUtility.ToHtmlStringRGB(regularColor);
+			Logger.LogError($"{this} variable {nameof(itemGO)} was null!");
+		}
+
+		// try get human-readable item name
+		var itemNameStr = TextUtils.UppercaseFirst(itemGO.ExpensiveName());
+		itemName.SetValueServer(itemNameStr);
+
+		itemIcon.SetValueServer(itemGO.name);
+
+		itemCount.SetValueServer($"({vendorItem.Stock.ToString()})");
+		if (vendorItem.Stock <= 0)
+		{
+			itemBackground.SetValueServer(emptyStockColor);
+		}
+		else
+		{
+			itemBackground.SetValueServer(regularColor);
 		}
 	}
 
-	public void VendorItem()
+	public void OnVendItemButtonPressed(ConnectedPlayer player)
 	{
 		if (vendorItem == null || vendorWindow == null)
 		{
 			return;
 		}
-		vendorWindow.VendItem(vendorItem);
+
+		vendorWindow.OnVendItemButtonPressed(vendorItem, player);
 	}
 }

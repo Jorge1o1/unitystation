@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using Mirror;
+using NPC.AI;
 using UnityEngine;
 
 public class MobMeleeLerpMessage : ServerMessage
@@ -9,10 +10,24 @@ public class MobMeleeLerpMessage : ServerMessage
 
 	public override void Process()
 	{
-		if (mob == NetId.Empty) return;
+		LoadNetworkObject(mob);
 
-		var getMob = NetworkIdentity.spawned[mob];
+		if (NetworkObject == null) return;
+		
+		var getMob = NetworkObject;
 		var mobMelee = getMob.GetComponent<MobMeleeAttack>();
+		var mobAction = getMob.GetComponent<MobMeleeAction>();
+		if (mobMelee == null & mobAction == null)
+		{
+			return;
+		}
+
+		if (mobMelee == null)
+		{
+			mobAction.ClientDoLerpAnimation(dir);
+			return;
+		}
+
 		mobMelee.ClientDoLerpAnimation(dir);
 	}
 

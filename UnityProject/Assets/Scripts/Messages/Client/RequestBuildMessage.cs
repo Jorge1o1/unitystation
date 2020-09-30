@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Linq;
 using Construction;
+using Messages.Client;
 using UnityEngine;
 
 /// <summary>
@@ -96,12 +97,12 @@ public class RequestBuildMessage : ClientMessage
 	/// <returns></returns>
 	public static RequestBuildMessage Send(BuildList.Entry entry, BuildingMaterial hasMenu)
 	{
-		byte entryIndex = (byte) hasMenu.BuildList.Entries.ToList().IndexOf(entry);
-		if (entryIndex == -1) return null;
+		int entryIndex = hasMenu.BuildList.Entries.ToList().IndexOf(entry);
+		if (entryIndex == -1) return null; // entryIndex was previously a byte, which made this check impossible.
 
 		RequestBuildMessage msg = new RequestBuildMessage
 		{
-			EntryIndex = entryIndex
+			EntryIndex = (byte) entryIndex
 		};
 		msg.Send();
 		return msg;

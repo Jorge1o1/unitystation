@@ -14,18 +14,18 @@ public class MetaDataLayer : MonoBehaviour
 	private SubsystemManager subsystemManager;
 	private ReactionManager reactionManager;
 	private Matrix matrix;
-	private MetaTileMap metaTileMap;
 
 	private void Awake()
 	{
 		subsystemManager = GetComponentInParent<SubsystemManager>();
 		reactionManager = GetComponentInParent<ReactionManager>();
 		matrix = GetComponent<Matrix>();
-		metaTileMap = GetComponent<MetaTileMap>();
 	}
 
 	public MetaDataNode Get(Vector3Int localPosition, bool createIfNotExists = true)
 	{
+		localPosition.z = 0; //Z Positions are always on 0
+
 		if (!nodes.ContainsKey(localPosition))
 		{
 			if (createIfNotExists)
@@ -102,7 +102,7 @@ public class MetaDataLayer : MonoBehaviour
 
 		bool didSplat = false;
 
-		foreach (var reagent in reagents.reagents)
+		foreach (var reagent in reagents)
 		{
 			if(reagent.Value < 1)
 			{
@@ -146,7 +146,7 @@ public class MetaDataLayer : MonoBehaviour
 					//for all other things leave a chem splat
 					if (!didSplat)
 					{
-						EffectsFactory.ChemSplat(worldPosInt);
+						EffectsFactory.ChemSplat(worldPosInt, reagents.MixColor);
 						didSplat = true;
 					}
 
@@ -196,8 +196,8 @@ public class MetaDataLayer : MonoBehaviour
 	}
 
 
-	public void UpdateSystemsAt(Vector3Int localPosition)
+	public void UpdateSystemsAt(Vector3Int localPosition, SystemType ToUpDate = SystemType.All)
 	{
-		subsystemManager.UpdateAt(localPosition);
+		subsystemManager.UpdateAt(localPosition, ToUpDate);
 	}
 }

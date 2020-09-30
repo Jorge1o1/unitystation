@@ -13,6 +13,12 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: f6c8f404e62d92446b84a5d82ca238d1,
         type: 2}
+    - target: {fileID: 1144377286929211408, guid: 70e762212c1501d49bbcd7004162631a,
+        type: 3}
+      propertyPath: PresentSpriteSet
+      value: 
+      objectReference: {fileID: 11400000, guid: 1b44645f72cda054c877f306684b34d8,
+        type: 2}
     - target: {fileID: 6365362806135941323, guid: 70e762212c1501d49bbcd7004162631a,
         type: 3}
       propertyPath: m_Sprite
@@ -22,7 +28,7 @@ PrefabInstance:
     - target: {fileID: 6532394448030161815, guid: 70e762212c1501d49bbcd7004162631a,
         type: 3}
       propertyPath: m_Name
-      value: HeadOfPersonnelsSuitskirt
+      value: TealSuitskirt
       objectReference: {fileID: 0}
     - target: {fileID: 6535910548812736227, guid: 70e762212c1501d49bbcd7004162631a,
         type: 3}
@@ -93,6 +99,11 @@ PrefabInstance:
         type: 3}
       propertyPath: initialDescription
       value: A teal suitskirt and yellow necktie. An authoritative yet tacky ensemble.
+      objectReference: {fileID: 0}
+    - target: {fileID: 7497797982670074626, guid: 70e762212c1501d49bbcd7004162631a,
+        type: 3}
+      propertyPath: bodyPartsCovered
+      value: 240
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 70e762212c1501d49bbcd7004162631a, type: 3}

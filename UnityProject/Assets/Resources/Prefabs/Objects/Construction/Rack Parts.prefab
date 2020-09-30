@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 3118628355925246483}
   - component: {fileID: -7234190806406616334}
   - component: {fileID: 8162274126718134943}
+  - component: {fileID: -6154840149290128393}
   m_Layer: 10
   m_Name: Rack Parts
   m_TagString: Untagged
@@ -83,6 +84,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   syncMode: 0
   syncInterval: 0.1
+  snapToGridOnStart: 1
   IsFixedMatrix: 0
 --- !u!114 &2959146656708143528
 MonoBehaviour:
@@ -137,6 +139,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spriteMatrixRotationBehavior: 1
+  ignoreExtraRotation: []
 --- !u!114 &2010458303386780433
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -149,7 +152,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f68d36ed5e334f99b82dc3801757e89, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  butcherKnifeTrait: {fileID: 0}
+  isMeleeable: 1
   butcherTime: 2
   butcherSound: BladeSlice
 --- !u!114 &4664957552587279702
@@ -180,6 +183,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rackPrefab: {fileID: 7144248469089430455, guid: f9d3bcbd125054bb4a8d60e18d3fcf34,
     type: 3}
+  metalPrefab: {fileID: 5770283965274354279, guid: b83b68cfa4a201748aeeece963a989c3,
+    type: 3}
+  metalCount: 1
 --- !u!114 &490726123092147132
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -194,6 +200,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   syncMode: 0
   syncInterval: 0.1
+  initialIntegrity: 100
+  soundOnHit: 
+  damageDeflection: 0
   Armor:
     Melee: 0
     Bullet: 0
@@ -214,7 +223,6 @@ MonoBehaviour:
     Indestructable: 0
     FreezeProof: 0
   HeatResistance: 100
-  initialIntegrity: 100
 --- !u!114 &3118628355925246483
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -227,6 +235,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isDirty: 0
   sceneId: 0
   serverOnly: 0
   m_AssetId: 
@@ -246,6 +255,7 @@ MonoBehaviour:
   syncInterval: 0.1
   initialName: Rack Parts
   initialDescription: Parts of a rack.
+  willHighlight: 1
   exportCost: 0
   exportName: 
   exportMessage: 
@@ -257,22 +267,24 @@ MonoBehaviour:
   throwSpeed: 2
   throwRange: 7
   hitSound: GenericHit
+  hitSoundSettings: 0
   canConnectToTank: 0
   isEVACapable: 0
   attackVerbs: []
   itemSprites:
-    LeftHand:
-      Texture: {fileID: 0}
-      Sprites: []
-      EquippedData: {fileID: 0}
-    RightHand:
-      Texture: {fileID: 0}
-      Sprites: []
-      EquippedData: {fileID: 0}
-    InventoryIcon:
-      Texture: {fileID: 0}
-      Sprites: []
-      EquippedData: {fileID: 0}
+    SpriteInventoryIcon: {fileID: 0}
+    SpriteLeftHand: {fileID: 0}
+    SpriteRightHand: {fileID: 0}
+    Palette:
+    - {r: 0, g: 0, b: 0, a: 0}
+    - {r: 0, g: 0, b: 0, a: 0}
+    - {r: 0, g: 0, b: 0, a: 0}
+    - {r: 0, g: 0, b: 0, a: 0}
+    - {r: 0, g: 0, b: 0, a: 0}
+    - {r: 0, g: 0, b: 0, a: 0}
+    - {r: 0, g: 0, b: 0, a: 0}
+    - {r: 0, g: 0, b: 0, a: 0}
+    IsPaletted: 0
 --- !u!114 &8162274126718134943
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -287,7 +299,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   syncMode: 0
   syncInterval: 0.1
-  spriteHandler: {fileID: 0}
+--- !u!114 &-6154840149290128393
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6034371561869202664}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62cc3ef7cd9082443aaf3c255851d15a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &9210611658135231461
 GameObject:
   m_ObjectHideFlags: 0
@@ -333,6 +356,7 @@ SpriteRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 0
   m_ReflectionProbeUsage: 0
+  m_RayTracingMode: 0
   m_RenderingLayerMask: 4294967295
   m_RendererPriority: 0
   m_Materials:

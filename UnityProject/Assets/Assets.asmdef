@@ -6,7 +6,16 @@
         "Unity.TextMeshPro",
         "Chemistry",
         "YamlDotNet",
-        "SerializableDictionary"
+        "SerializableDictionary",
+        "NaughtyAttributes.Core",
+        "Utils",
+        "Unity.2D.PixelPerfect",
+        "Unity.EditorCoroutines.Editor",
+        "MLAgent",
+        "Logger",
+        "GameInfo",
+        "Lighting",
+        "LeanTween"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -15,5 +24,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": []
+    "versionDefines": [],
+    "noEngineReferences": false
 }

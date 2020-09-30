@@ -7,6 +7,11 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1973002661359593264, guid: 9c0ae44adb2c14e9bae919e9e0f844fc,
+        type: 3}
+      propertyPath: bodyPartsCovered
+      value: 240
+      objectReference: {fileID: 0}
     - target: {fileID: 2909197017712554513, guid: 9c0ae44adb2c14e9bae919e9e0f844fc,
         type: 3}
       propertyPath: m_AssetId
@@ -93,6 +98,12 @@ PrefabInstance:
       propertyPath: clothData
       value: 
       objectReference: {fileID: 11400000, guid: f28784210cc1fc8488fe1f24d3c5b0e1,
+        type: 2}
+    - target: {fileID: 8975007657035133986, guid: 9c0ae44adb2c14e9bae919e9e0f844fc,
+        type: 3}
+      propertyPath: PresentSpriteSet
+      value: 
+      objectReference: {fileID: 11400000, guid: 669efc8eb3ba01f47b3ac7de809e6b89,
         type: 2}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 9c0ae44adb2c14e9bae919e9e0f844fc, type: 3}

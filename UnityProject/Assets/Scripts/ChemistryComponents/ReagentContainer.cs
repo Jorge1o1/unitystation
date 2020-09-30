@@ -5,721 +5,440 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Serialization;
-using Chemistry;
 
-/// <summary>
-/// Note that pretty much all the methods in this component work server-side only, but aren't
-/// prefixed with "Server"
-/// </summary>
-[RequireComponent(typeof(RightClickAppearance))]
-public class ReagentContainer : MonoBehaviour, IRightClickable, IServerSpawn,
-	ICheckedInteractable<HandApply>, //Transfer: active hand <-> object in the world
-	ICheckedInteractable<HandActivate>, //Activate to change transfer amount
-	ICheckedInteractable<InventoryApply>, //Transfer: active hand <-> other hand
-	IEnumerable<KeyValuePair<Chemistry.Reagent, float>>
+namespace Chemistry.Components
 {
-	public int maxCapacity = 100;
-	[SerializeField] private ReactionSet reactionSet;
-	[SerializeField] private ReagentMix reagentMix = new ReagentMix();
-
-	public float CurrentCapacity
-	{
-		get => currentCapacity;
-		private set
-		{
-			currentCapacity = value;
-			onCurrentCapacityChange.Invoke(value);
-		}
-	}
-
-	public float? this[Chemistry.Reagent reagent] => reagentMix[reagent];
-
-	private DictionaryReagentFloat Reagents => reagentMix.reagents;
-
-	public ItemAttributesV2 itemAttributes;
-	private FloatEvent onCurrentCapacityChange = new FloatEvent();
-
-	[FormerlySerializedAs("TraitWhitelist")] [FormerlySerializedAs("AcceptedTraits")]
-	public List<ItemTrait> traitWhitelist;
-
-	public bool TraitWhitelistOn => traitWhitelist.Count > 0;
-
-	[FormerlySerializedAs("ReagentWhitelist")] [FormerlySerializedAs("AcceptedReagents")]
-	public List<Chemistry.Reagent> reagentWhitelist;
-
-	public bool ReagentWhitelistOn => reagentWhitelist != null && reagentWhitelist.Count > 0;
-
-	[FormerlySerializedAs("TransferMode")] public TransferMode transferMode = TransferMode.Normal;
-
-	public bool IsFull => CurrentCapacity >= maxCapacity;
-	public bool IsEmpty => CurrentCapacity <= 0f;
-
-	[FormerlySerializedAs("PossibleTransferAmounts")]
-	public List<float> possibleTransferAmounts;
-
 	/// <summary>
-	/// Invoked server side when regent container spills all of its contents
+	/// Defines reagent container that can store reagent mix. All reagent mix logic done server side.
+	/// Client can only interact with container by Interactions (Examine, HandApply, etc).
 	/// </summary>
-	[NonSerialized] public UnityEvent OnSpillAllContents = new UnityEvent();
-
-	[field: Range(1, 100)]
-	[field: SerializeField]
-	[field: FormerlySerializedAs("TransferAmount")]
-	[field: FormerlySerializedAs("InitialTransferAmount")]
-	private float transferAmount = 20;
-
-	public float TransferAmount
+	[RequireComponent(typeof(RightClickAppearance))]
+	public partial class ReagentContainer : MonoBehaviour, IServerSpawn, IRightClickable, ICheckedInteractable<ContextMenuApply>,
+		IEnumerable<KeyValuePair<Reagent, float>>
 	{
-		get => transferAmount;
-		set => transferAmount = value;
-	}
+		[Header("Container Parameters")]
 
-	public float Temperature
-	{
-		get => reagentMix.Temperature;
-		set => reagentMix.Temperature = value;
-	}
-
-	public ReactionSet ReactionSet
-	{
-		get => reactionSet;
-		set => reactionSet = value;
-	}
-
-	private RegisterTile registerTile;
-	private EmptyFullSync containerSprite;
-	private float currentCapacity;
-
-	private void Awake()
-	{
-		itemAttributes = GetComponent<ItemAttributesV2>();
-		if (itemAttributes != null)
+		[Tooltip("Max container capacity in units")]
+		[SerializeField] private int maxCapacity = 100;
+		public int MaxCapacity
 		{
-			itemAttributes.AddTrait(CommonTraits.Instance.ReagentContainer);
+			get => maxCapacity;
+			private set { maxCapacity = value; }
 		}
 
-		this.WaitForNetworkManager(() =>
+		[Tooltip("Reactions list which can happen inside container. Use Default for generic containers")]
+		[SerializeField] private ReactionSet reactionSet;
+		public ReactionSet ReactionSet
 		{
-			if (!CustomNetworkManager.IsServer)
+			get => reactionSet;
+			private set { reactionSet = value; }
+		}
+
+		[Tooltip("Initial mix of reagent inside container")]
+		[FormerlySerializedAs("reagentMix")]
+		[SerializeField] private ReagentMix initialReagentMix = new ReagentMix();
+		[SerializeField]
+		private bool destroyOnEmpty = default;
+
+		private ItemAttributesV2 itemAttributes = default;
+		private RegisterTile registerTile;
+		private CustomNetTransform customNetTransform;
+		private Integrity integrity;
+
+		/// <summary>
+		/// Invoked server side when regent container spills all of its contents
+		/// </summary>
+		[NonSerialized] public UnityEvent OnSpillAllContents = new UnityEvent();
+
+		/// <summary>
+		/// Invoked server side when the mix of reagents inside container changes
+		/// </summary>
+		[NonSerialized] public UnityEvent OnReagentMixChanged = new UnityEvent();
+
+		private ReagentMix currentReagentMix;
+		/// <summary>
+		/// Server side only. Current reagent mix inside container.
+		/// Invoke OnReagentMixChanged if you change anything in reagent mix
+		/// </summary>
+		public ReagentMix CurrentReagentMix
+		{
+			get
 			{
-				return;
+				if (currentReagentMix == null)
+				{
+					if (initialReagentMix == null)
+						return null;
+					currentReagentMix = initialReagentMix.Clone();
+				}
+				return currentReagentMix;
+			}
+		}
+
+		/// <summary>
+		/// Returns reagent amount in container
+		/// </summary>
+		public float this[Reagent reagent] => CurrentReagentMix[reagent];
+
+		public bool IsFull => ReagentMixTotal >= MaxCapacity;
+
+		public bool IsEmpty => ReagentMixTotal <= 0f;
+
+		/// <summary>
+		/// Server side only. Current temperature of reagent mix
+		/// </summary>
+		public float Temperature
+		{
+			get => CurrentReagentMix.Temperature;
+			set
+			{
+				CurrentReagentMix.Temperature = value;
+				OnReagentMixChanged?.Invoke();
+			}
+		}
+
+		private string FancyContainerName
+		{
+			get
+			{
+				return itemAttributes ? itemAttributes.InitialName : gameObject.ExpensiveName();
+			}
+		}
+
+		/// <summary>
+		/// Server side only. Total reagent mix amount in units
+		/// </summary>
+		public float ReagentMixTotal
+		{
+			get
+			{
+				return CurrentReagentMix.Total;
+			}
+		}
+
+		private void Awake()
+		{
+			registerTile = GetComponent<RegisterTile>();
+
+			// register spill on throw
+			customNetTransform = GetComponent<CustomNetTransform>();
+			if (customNetTransform)
+			{
+				customNetTransform.OnThrowEnd.AddListener(throwInfo =>
+				{
+					//check spill on throw
+					if (!Validations.HasItemTrait(this.gameObject, CommonTraits.Instance.SpillOnThrow) || IsEmpty)
+					{
+						return;
+					}
+
+					SpillAll(thrown: true);
+				});
 			}
 
-			onCurrentCapacityChange.AddListener(newCapacity =>
+			// spill all content on destroy
+			integrity = GetComponent<Integrity>();
+			if (integrity)
 			{
-				if (containerSprite == null)
-				{
-					return;
-				}
-
-				containerSprite.SetState(IsEmpty ? EmptyFullStatus.Empty : EmptyFullStatus.Full);
-			});
-		});
-	}
-
-	private void Start()
-	{
-		if (!CustomNetworkManager.IsServer)
-		{
-			return;
+				integrity.OnWillDestroyServer.AddListener(info => SpillAll());
+			}
 		}
 
-		registerTile = GetComponent<RegisterTile>();
-		var customNetTransform = GetComponent<CustomNetTransform>();
-		if (customNetTransform != null)
+		public void OnSpawnServer(SpawnInfo info)
 		{
-			customNetTransform.OnThrowEnd.AddListener(throwInfo =>
+			// reset all content on server respawn
+			ResetContent();
+		}
+
+		/// <summary>
+		/// Reset reagent mix to its initial state
+		/// </summary>
+		protected void ResetContent()
+		{
+			currentReagentMix = initialReagentMix.Clone();
+			OnReagentMixChanged?.Invoke();
+		}
+
+		/// <summary>
+		/// Server side only.
+		/// Add reagent mix to container. May cause reaction inside container.
+		/// Use MoveReagentsTo to transfer reagents from one container to another
+		/// </summary>
+		public TransferResult Add(ReagentMix addition)
+		{
+			// check whitelist reagents
+			if (ReagentWhitelistOn)
 			{
-				//check spill on throw
-				if (!Validations.HasItemTrait(this.gameObject, CommonTraits.Instance.SpillOnThrow))
+				if (!addition.All(r => reagentWhitelist.Contains(r.Key)))
 				{
-					return;
+					return new TransferResult
+					{
+						Success = false,
+						Message = "You can't transfer this into " + FancyContainerName
+					};
 				}
+			}
 
-				if (IsEmpty)
-				{
-					return;
-				}
-
-				SpillAll(thrown: true);
-			});
-		}
-
-		if (containerSprite == null)
-		{
-			containerSprite = GetComponent<EmptyFullSync>();
-		}
-
-		var integrity = GetComponent<Integrity>();
-		if (integrity != null)
-		{
-			integrity.OnWillDestroyServer.AddListener(info => SpillAll());
-		}
-	}
-
-	/// <summary>
-	/// Reinitialise the contents if there are any with the passed in values
-	/// </summary>
-	/// <param name="reagents">List of reagent names</param>
-	/// <param name="amounts">List of reagent amounts</param>
-	public void ResetContents(List<string> reagents, List<float> amounts)
-	{
-		//Reagents = reagents;
-		//Amounts = amounts;
-		ResetContents();
-	}
-
-	protected void ResetContents()
-	{
-		CurrentCapacity = reagentMix.Total;
-	}
-
-	public void OnSpawnServer(SpawnInfo info)
-	{
-		TransferAmount = TransferAmount;
-		ResetContents();
-	}
-
-	public RightClickableResult GenerateRightClickOptions()
-	{
-		var result = RightClickableResult.Create();
-
-		if (!CustomNetworkManager.Instance._isServer)
-		{
-			return result;
-		}
-
-		//fixme: these only work on server
-		result.AddElement("Contents", ExamineContents);
-		//Pour / add can only be done if in reach
-		if (Validations.IsInReach(registerTile, PlayerManager.LocalPlayerScript.registerTile, false))
-		{
-			result.AddElement("PourOut", () => SpillAll());
-		}
-
-		return result;
-	}
-
-	private void ExamineContents()
-	{
-		if (IsEmpty)
-		{
-			Chat.AddExamineMsgToClient(gameObject.ExpensiveName() + " is empty.");
-			return;
-		}
-
-		foreach (var reagent in Reagents)
-		{
-			Chat.AddExamineMsgToClient($"{gameObject.ExpensiveName()} contains {reagent.Value} {reagent.Key}.");
-		}
-	}
-
-	/// <summary>
-	/// Add reagents
-	/// </summary>
-	/// <param name="addition">Reagents to add</param>
-	/// <param name="addTemperature">KELVIN temperature of added reagents, default equals to 20°C</param>
-	/// <returns>Result of transfer. Can see how much was actually transferred, if any</returns>
-	public TransferResult Add(ReagentMix addition)
-	{
-		if (ReagentWhitelistOn)
-		{
-			if (!addition.reagents.All(r => reagentWhitelist.Contains(r.Key)))
+			// check if container is already full
+			if (IsFull)
 			{
 				return new TransferResult
 				{
 					Success = false,
-					Message = "You can't transfer this into " + gameObject.ExpensiveName()
+					Message = $"The {FancyContainerName} is full."
 				};
 			}
-		}
 
-		CurrentCapacity = reagentMix.Total;
-		var totalToAdd = reagentMix.Total;
+			// save total ammount before mixing
+			var transferAmount = addition.Total;
+			var beforeMixTotal = CurrentReagentMix.Total;
+			var afterMixTotal = beforeMixTotal + transferAmount;
 
-		if (CurrentCapacity >= maxCapacity)
-		{
-			return new TransferResult
+			// check if container can hold sum of mixes amount
+			if (afterMixTotal > MaxCapacity)
 			{
-				Success = false,
-				Message = $"The {gameObject.ExpensiveName()} is full."
-			};
-		}
-
-		reagentMix.Add(addition);
-
-		//Reactions happen here
-		reactionSet.Apply(this, reagentMix);
-		CurrentCapacity = reagentMix.Total;
-		reagentMix.Clean();
-
-		var message = string.Empty;
-		if (CurrentCapacity > maxCapacity)
-		{
-			//Reaction ends up in more reagents than container can hold
-			var excessCapacity = CurrentCapacity;
-			reagentMix.Max(maxCapacity, out _);
-			CurrentCapacity = reagentMix.Total;
-			message = $"Reaction caused excess ({excessCapacity}/{maxCapacity}), current capacity is {CurrentCapacity}";
-		}
-
-		return new TransferResult {Success = true, TransferAmount = totalToAdd, Message = message};
-	}
-
-	public bool Contains(Chemistry.Reagent reagent, float amount)
-	{
-		return reagentMix.Contains(reagent, amount);
-	}
-
-	public bool ContainsMoreThan(Chemistry.Reagent reagent, float amount)
-	{
-		return reagentMix.ContainsMoreThan(reagent, amount);
-	}
-
-	/// <summary>
-	/// Extracts reagents to be used outside ReagentContainer
-	/// </summary>
-	public ReagentMix TakeReagents(float amount)
-	{
-		return reagentMix.Take(amount);
-	}
-
-	public void Subtract(ReagentMix reagents)
-	{
-		reagentMix.Subtract(reagents);
-	}
-
-	/// <summary>
-	/// Moves reagents to another container
-	/// </summary>
-	public TransferResult MoveReagentsTo(float amount, ReagentContainer target)
-	{
-		return TransferTo(amount, target);
-	}
-
-	/// <summary>
-	/// Moves reagents to another container
-	/// </summary>
-	public TransferResult TransferTo(
-		float amount,
-		ReagentContainer target
-	)
-	{
-		TransferResult transferResult;
-
-		if (target != null)
-		{
-			var transffered = reagentMix.Take(amount);
-			transferResult = target.Add(transffered);
-			if (!transferResult.Success)
-			{
-				//don't consume contents if transfer failed
-				return transferResult;
-			}
-		}
-		else
-		{
-			transferResult = new TransferResult
-			{
-				Success = true,
-				TransferAmount = amount,
-				Message = "Reagents were consumed"
-			};
-		}
-
-		reagentMix.Clean();
-		CurrentCapacity = reagentMix.Total;
-
-		return transferResult;
-	}
-
-	/// <summary>
-	/// Gets the amount of a particular reagent. 0 if it doesn't have this reagent.
-	/// </summary>
-	/// <param name="reagentName"></param>
-	/// <returns></returns>
-	public float AmountOfReagent(Chemistry.Reagent reagent)
-	{
-		Reagents.TryGetValue(reagent, out var amount);
-		return amount;
-	}
-
-	private void RemoveAll()
-	{
-		reagentMix.Clear();
-	}
-
-	private void SpillAll(bool thrown = false)
-	{
-		SpillAll(TransformState.HiddenPos, thrown);
-	}
-
-	public void Spill(Vector3Int worldPos, float amount)
-	{
-		var spilledReagents = TakeReagents(amount);
-		CurrentCapacity = reagentMix.Total;
-		MatrixManager.ReagentReact(spilledReagents, worldPos);
-	}
-
-	private void SpillAll(Vector3Int worldPos, bool thrown = false)
-	{
-		if (IsEmpty)
-		{
-			return;
-		}
-
-		//It could of been destroyed in an explosion:
-		if (registerTile.CustomTransform == null)
-		{
-			return;
-		}
-
-		if (worldPos == TransformState.HiddenPos)
-		{
-			worldPos = registerTile.CustomTransform.AssumedWorldPositionServer().CutToInt();
-		}
-
-		NotifyPlayersOfSpill(worldPos);
-
-		//todo: half decent regs spread
-		var spilledReagents = TakeReagents(reagentMix.Total);
-		MatrixManager.ReagentReact(spilledReagents, worldPos);
-
-		OnSpillAllContents.Invoke();
-	}
-
-	private void NotifyPlayersOfSpill(Vector3Int worldPos)
-	{
-		var mobs = MatrixManager.GetAt<LivingHealthBehaviour>(worldPos, true);
-		if (mobs.Count > 0)
-		{
-			foreach (var mob in mobs)
-			{
-				var mobGameObject = mob.gameObject;
-				Chat.AddCombatMsgToChat(mobGameObject, mobGameObject.name + " has been splashed with something!",
-					mobGameObject.name + " has been splashed with something!");
-			}
-		}
-		else
-		{
-			Chat.AddLocalMsgToChat($"{gameObject.ExpensiveName()}'s contents spill all over the floor!",
-				(Vector3) worldPos, gameObject);
-		}
-	}
-
-	public bool WillInteract(InventoryApply interaction, NetworkSide side)
-	{
-		if (!DefaultWillInteract.Default(interaction, side))
-		{
-			return false;
-		}
-
-		return WillInteractHelp(interaction.UsedObject, interaction.TargetObject, side);
-	}
-
-	public bool WillInteract(HandApply interaction, NetworkSide side)
-	{
-		if (!DefaultWillInteract.Default(interaction, side)) return false;
-
-		var playerScript = interaction.Performer.GetComponent<PlayerScript>();
-		if (!playerScript) return false;
-
-		if (interaction.Intent == Intent.Help)
-		{
-			//checks if it's possible to transfer from container to container
-			if (!WillInteractHelp(interaction.HandObject, interaction.TargetObject, side)) return false;
-		}
-		else
-		{
-			//checks if it's possible to spill contents on player
-			if (!WillInteractHarm(interaction.HandObject, interaction.TargetObject, side)) return false;
-		}
-
-		return true;
-	}
-
-	private bool WillInteractHarm(GameObject srcObject, GameObject dstObject, NetworkSide side)
-	{
-		if (srcObject == null || dstObject == null) return false;
-
-		var srcContainer = srcObject.GetComponent<ReagentContainer>();
-
-		if (srcContainer == null) return false;
-
-		if (srcContainer.transferMode == TransferMode.NoTransfer) return false;
-
-		if (dstObject.GetComponent<PlayerScript>() == null) return false;
-
-		return true;
-	}
-
-	private bool WillInteractHelp(GameObject srcObject, GameObject dstObject, NetworkSide side)
-	{
-		if (srcObject == null || dstObject == null) return false;
-
-		var srcContainer = srcObject.GetComponent<ReagentContainer>();
-		var dstContainer = dstObject.GetComponent<ReagentContainer>();
-
-		if (srcContainer == null || dstContainer == null) return false;
-
-		if (srcContainer.transferMode == TransferMode.NoTransfer
-		    || dstContainer.transferMode == TransferMode.NoTransfer)
-		{
-			return false;
-		}
-
-		if (side == NetworkSide.Server)
-		{
-			if (srcContainer.TraitWhitelistOn && !Validations.HasAnyTrait(dstObject, srcContainer.traitWhitelist))
-			{
-				return false;
+				// remove excess from addition mix
+				// it will delete excess from world entirely
+				transferAmount = MaxCapacity - beforeMixTotal;
+				addition.Max(transferAmount, out _);
 			}
 
-			if (dstContainer.TraitWhitelistOn && !Validations.HasAnyTrait(dstObject, srcContainer.traitWhitelist))
+			// add addition to reagent mix
+			CurrentReagentMix.Add(addition);
+			//Reactions happen here
+			if (ReactionSet != null)
 			{
-				return false;
+				ReactionSet.Apply(this, CurrentReagentMix);
+			}
+
+			// get mix total after all reactions
+			var afterReactionTotal = CurrentReagentMix.Total;
+
+			var message = string.Empty;
+			if (ReagentMixTotal > MaxCapacity)
+			{
+				//Reaction ends up in more reagents than container can hold
+				CurrentReagentMix.Max(MaxCapacity, out _);
+				message = $"Content starts overflowing out of {FancyContainerName}!";
+			}
+
+			OnReagentMixChanged?.Invoke();
+			return new TransferResult { Success = true, TransferAmount = transferAmount, Message = message };
+		}
+
+		/// <summary>
+		/// Server side only. Subtract reagents from container
+		/// Use MoveReagentsTo to transfer reagents from one container to another
+		/// </summary>
+		/// <param name="reagents"></param>
+		public void Subtract(ReagentMix reagents)
+		{
+			CurrentReagentMix.Subtract(reagents);
+			OnReagentMixChanged?.Invoke();
+		}
+
+		/// <summary>
+		/// Server side only. Extracts reagents to be used outside ReagentContainer
+		/// </summary>
+		public ReagentMix TakeReagents(float amount)
+		{
+			var takeMix = CurrentReagentMix.Take(amount);
+			OnReagentMixChanged?.Invoke();
+			return takeMix;
+		}
+
+		/// <summary>
+		/// Server side only.
+		/// Gets the amount of a particular reagent. Zero if it doesn't have this reagent.
+		/// </summary>
+		/// <param name="reagentName"></param>
+		/// <returns></returns>
+		public float AmountOfReagent(Reagent reagent)
+		{
+			return CurrentReagentMix[reagent];
+		}
+
+		/// <summary>
+		/// Server side only.
+		/// </summary>
+		public void Multiply(float multiplier)
+		{
+			CurrentReagentMix.Multiply(multiplier);
+			OnReagentMixChanged?.Invoke();
+		}
+
+		/// <summary>
+		/// Server side only. Return color of the mix
+		/// </summary>
+		public Color GetMixColor()
+		{
+			return CurrentReagentMix.MixColor;
+		}
+
+		/// <summary>
+		/// Server only. Returns [0,1] fill percents
+		/// </summary>
+		public float GetFillPercent()
+		{
+			if (IsEmpty)
+				return 0f;
+
+			return Mathf.Clamp01(CurrentReagentMix.Total / MaxCapacity);
+		}
+
+		/// <summary>
+		/// Server only. Reagent with biggest amount in mix
+		/// </summary>
+		public Reagent MajorMixReagent => CurrentReagentMix.MajorMixReagent;
+
+		public IEnumerator<KeyValuePair<Chemistry.Reagent, float>> GetEnumerator()
+		{
+			return CurrentReagentMix.GetEnumerator();
+		}
+
+		IEnumerator IEnumerable.GetEnumerator()
+		{
+			return GetEnumerator();
+		}
+
+		#region Spill
+		private void SpillAll(bool thrown = false)
+		{
+			if (!IsEmpty)
+			{
+				if (registerTile && registerTile.CustomTransform)
+				{
+					var worldPos = registerTile.CustomTransform.AssumedWorldPositionServer();
+					worldPos.z = 0;
+					SpillAll(worldPos, thrown);
+				}
 			}
 		}
 
-		return dstContainer.transferMode != TransferMode.Syringe;
-	}
-
-	public void ServerPerformInteraction(InventoryApply interaction)
-	{
-		var one = interaction.UsedObject.GetComponent<ReagentContainer>();
-		var two = interaction.TargetObject.GetComponent<ReagentContainer>();
-
-		ServerTransferInteraction(one, two, interaction.Performer);
-	}
-
-	public void ServerPerformInteraction(HandApply interaction)
-	{
-		var srcPlayer = interaction.Performer.GetComponent<PlayerScript>();
-
-		if (interaction.Intent == Intent.Help)
+		/// <summary>
+		/// Server side only.
+		/// </summary>
+		public void Spill(Vector3Int worldPos, float amount)
 		{
-			var one = interaction.HandObject.GetComponent<ReagentContainer>();
-			var two = interaction.TargetObject.GetComponent<ReagentContainer>();
-
-			ServerTransferInteraction(one, two, interaction.Performer);
-		}
-		else
-		{
-			//TODO: Move this to Spill right click interaction? Need to make 'RequestSpill'
-			var dstPlayer = interaction.TargetObject.GetComponent<PlayerScript>();
-			ServerSpillInteraction(this, srcPlayer, dstPlayer);
-		}
-	}
-
-	private void ServerSpillInteraction(ReagentContainer reagentContainer, PlayerScript srcPlayer,
-		PlayerScript dstPlayer)
-	{
-		if (reagentContainer.IsEmpty)
-		{
-			return;
+			var spilledReagents = TakeReagents(amount);
+			MatrixManager.ReagentReact(spilledReagents, worldPos);
 		}
 
-		SpillAll(dstPlayer.WorldPos);
-	}
-
-	/// <summary>
-	/// Transfers Reagents between two containers
-	/// </summary>
-	private void ServerTransferInteraction(ReagentContainer one, ReagentContainer two, GameObject performer)
-	{
-		ReagentContainer transferTo = null;
-		switch (one.transferMode)
+		private void SpillAll(Vector3Int worldPos, bool thrown = false)
 		{
-			case TransferMode.Normal:
-				switch (two.transferMode)
+			NotifyPlayersOfSpill(worldPos);
+
+			//todo: half decent regs spread
+			var spilledReagents = TakeReagents(CurrentReagentMix.Total);
+			MatrixManager.ReagentReact(spilledReagents, worldPos);
+
+			OnSpillAllContents.Invoke();
+		}
+
+		private void NotifyPlayersOfSpill(Vector3Int worldPos)
+		{
+			var mobs = MatrixManager.GetAt<LivingHealthBehaviour>(worldPos, true);
+			if (mobs.Count > 0)
+			{
+				foreach (var mob in mobs)
 				{
-					case TransferMode.Normal:
-						transferTo = two;
-						break;
-					case TransferMode.OutputOnly:
-						transferTo = one;
-						break;
-					case TransferMode.InputOnly:
-						transferTo = two;
-						break;
-					default:
-						Logger.LogErrorFormat("Invalid transfer mode when attempting transfer {0}<->{1}",
-							Category.Chemistry, one, two);
-						break;
+					var mobGameObject = mob.gameObject;
+					Chat.AddCombatMsgToChat(mobGameObject, mobGameObject.name + " has been splashed with something!",
+						mobGameObject.name + " has been splashed with something!");
 				}
-
-				break;
-			case TransferMode.Syringe:
-				switch (two.transferMode)
-				{
-					case TransferMode.Normal:
-						transferTo = one.IsFull ? two : one;
-						break;
-					case TransferMode.OutputOnly:
-						transferTo = one;
-						break;
-					case TransferMode.InputOnly:
-						transferTo = two;
-						break;
-					default:
-						Logger.LogErrorFormat("Invalid transfer mode when attempting transfer {0}<->{1}",
-							Category.Chemistry, one, two);
-						break;
-				}
-
-				break;
-			case TransferMode.OutputOnly:
-				switch (two.transferMode)
-				{
-					case TransferMode.Normal:
-						transferTo = two;
-						break;
-					case TransferMode.OutputOnly:
-						Chat.AddExamineMsg(performer, "Both containers are output-only.");
-						break;
-					case TransferMode.InputOnly:
-						transferTo = two;
-						break;
-					default:
-						Logger.LogErrorFormat("Invalid transfer mode when attempting transfer {0}<->{1}",
-							Category.Chemistry, one, two);
-						break;
-				}
-
-				break;
-			case TransferMode.InputOnly:
-				switch (two.transferMode)
-				{
-					case TransferMode.Normal:
-						transferTo = one;
-						break;
-					case TransferMode.OutputOnly:
-						transferTo = one;
-						break;
-					case TransferMode.InputOnly:
-						Chat.AddExamineMsg(performer, "Both containers are input-only.");
-						break;
-					default:
-						Logger.LogErrorFormat("Invalid transfer mode when attempting transfer {0}<->{1}",
-							Category.Chemistry, one, two);
-						break;
-				}
-
-				break;
-			default:
-				Logger.LogErrorFormat("Invalid transfer mode when attempting transfer {0}<->{1}", Category.Chemistry,
-					one,
-					two);
-				break;
+			}
+			else
+			{
+				Chat.AddLocalMsgToChat($"{gameObject.ExpensiveName()}'s contents spill all over the floor!",
+					(Vector3)worldPos, gameObject);
+			}
 		}
 
-		if (transferTo == null)
+		#endregion
+
+		public override string ToString()
 		{
-			return;
+			return $"[{gameObject.ExpensiveName()}" +
+				   $" |{ReagentMixTotal}/{MaxCapacity}|" +
+				   $" ({string.Join(",", CurrentReagentMix)})" +
+				   $" Mode: {transferMode}," +
+				   $" TransferAmount: {TransferAmount}," +
+				   $" {nameof(IsEmpty)}: {IsEmpty}," +
+				   $" {nameof(IsFull)}: {IsFull}" +
+				   "]";
 		}
 
-		var transferFrom = two == transferTo ? one : two;
-
-		Logger.LogTraceFormat("Attempting transfer from {0} into {1}", Category.Chemistry, transferFrom, transferTo);
-
-
-		if (transferFrom.IsEmpty)
+		public RightClickableResult GenerateRightClickOptions()
 		{
-			//red msg
-			Chat.AddExamineMsg(performer, "The " + transferFrom.gameObject.ExpensiveName() + " is empty!");
-			return;
+			var result = RightClickableResult.Create();
+			result.AddElement("Contents", OnExamineContentsClicked);
+			//Pour / add can only be done if in reach
+			if (WillInteract(ContextMenuApply.ByLocalPlayer(gameObject, "PourOut"), NetworkSide.Client))
+			{
+				result.AddElement("PourOut", OnPourOutClicked);
+			}
+
+			return result;
 		}
 
-		var transferAmount = transferFrom.TransferAmount;
-
-		var useFillMessage = false;
-		//always taking max capacity from output-only things like tanks
-		if (transferFrom.transferMode == TransferMode.OutputOnly)
+		private void OnExamineContentsClicked()
 		{
-			transferAmount = transferFrom.CurrentCapacity;
-			useFillMessage = true;
+			var menuApply = ContextMenuApply.ByLocalPlayer(gameObject, "Contents");
+			RequestInteractMessage.Send(menuApply, this);
 		}
 
-		var result = transferFrom.MoveReagentsTo(transferAmount, transferTo);
-
-		string resultMessage;
-		if (string.IsNullOrEmpty(result.Message))
-			resultMessage = useFillMessage
-				? $"You fill the {transferTo.gameObject.ExpensiveName()} with {result.TransferAmount} units of the contents of the {transferFrom.gameObject.ExpensiveName()}."
-				: $"You transfer {result.TransferAmount} units of the solution to the {transferTo.gameObject.ExpensiveName()}.";
-		else
-			resultMessage = result.Message;
-		Chat.AddExamineMsg(performer, resultMessage);
-	}
-
-	public bool WillInteract(HandActivate interaction, NetworkSide side)
-	{
-		if (!DefaultWillInteract.Default(interaction, side)) return false;
-
-		return possibleTransferAmounts.Count != 0;
-	}
-
-	public void ServerPerformInteraction(HandActivate interaction)
-	{
-		var currentIndex = possibleTransferAmounts.IndexOf(TransferAmount);
-		if (currentIndex != -1)
+		private void OnPourOutClicked()
 		{
-			TransferAmount = possibleTransferAmounts.Wrap(currentIndex + 1);
+			var menuApply = ContextMenuApply.ByLocalPlayer(gameObject, "PourOut");
+			RequestInteractMessage.Send(menuApply, this);
 		}
-		else
+
+		public bool WillInteract(ContextMenuApply interaction, NetworkSide side)
 		{
-			TransferAmount = possibleTransferAmounts[0];
+			return DefaultWillInteract.Default(interaction, side);
 		}
 
-		Chat.AddExamineMsg(interaction.Performer,
-			$"The {gameObject.ExpensiveName()}'s transfer amount is now {TransferAmount} units.");
+		public void ServerPerformInteraction(ContextMenuApply interaction)
+		{
+			switch (interaction.RequestedOption)
+			{
+				case "Contents":
+					// I think some condition should be met before the user knows what the exact contents of a container are.
+					// Wearing science goggles?
+					ExamineContents();
+					break;
+				case "PourOut":
+					SpillAll();
+					break;
+			}
+		}
+
+		private void ExamineContents()
+		{
+			if (IsEmpty)
+			{
+				Chat.AddExamineMsgToClient(gameObject.ExpensiveName() + " is empty.");
+				return;
+			}
+
+			foreach (var reagent in CurrentReagentMix)
+			{
+				Chat.AddExamineMsgToClient($"{gameObject.ExpensiveName()} contains {reagent.Value} {reagent.Key}.");
+			}
+		}
+
+		/// <summary>
+		/// Used for tests and debug only
+		/// Create empty gameobject and add reagent containe with desired settings
+		/// </summary>
+		public static ReagentContainer Create(ReactionSet reactionSet, int maxCapacity)
+		{
+			GameObject obj = new GameObject();
+			var container = obj.AddComponent<ReagentContainer>();
+
+			container.ReactionSet = reactionSet;
+			container.MaxCapacity = maxCapacity;
+
+			return container;
+		}
 	}
-
-	public IEnumerator<KeyValuePair<Chemistry.Reagent, float>> GetEnumerator()
-	{
-		return reagentMix.GetEnumerator();
-	}
-
-	IEnumerator IEnumerable.GetEnumerator()
-	{
-		return GetEnumerator();
-	}
-
-	public override string ToString()
-	{
-		return $"[{gameObject.ExpensiveName()}" +
-		       $" |{CurrentCapacity}/{maxCapacity}|" +
-		       $" ({string.Join(",", Reagents)})" +
-		       $" Mode: {transferMode}," +
-		       $" TransferAmount: {TransferAmount}," +
-		       $" {nameof(IsEmpty)}: {IsEmpty}," +
-		       $" {nameof(IsFull)}: {IsFull}" +
-		       "]";
-	}
-
-	public void Multiply(float multiplier)
-	{
-		reagentMix.Multiply(multiplier);
-	}
-
-	public void Clean()
-	{
-		reagentMix.Clean();
-	}
-}
-
-public struct TransferResult
-{
-	public bool Success;
-	public string Message;
-	public float TransferAmount;
-}
-
-public enum TransferMode
-{
-	Normal = 0, //Output from your hand, unless other thing is physically larger
-	Syringe = 1, //Outputs if it's full, Inputs if it's empty
-	OutputOnly = 2,
-	InputOnly = 3,
-	NoTransfer = 4
 }

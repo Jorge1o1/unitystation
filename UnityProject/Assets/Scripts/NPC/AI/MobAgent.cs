@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Initialisation;
+using UnityEngine;
 using MLAgents;
 
 /// <summary>
@@ -39,6 +40,7 @@ public class MobAgent : Agent
 		agentParameters.onDemandDecision = true;
 	}
 
+
 	//Reset is used mainly for training
 	//SetPosition() has now been commented out
 	//as it was used in training. Leaving the
@@ -62,21 +64,25 @@ public class MobAgent : Agent
 		tickWait = 0f;
 	}
 
-	public override void OnEnable()
+	public virtual void Start()
 	{
 		//only needed for starting via a map scene through the editor:
 		if (CustomNetworkManager.Instance == null) return;
 
-		UpdateManager.Add(CallbackType.UPDATE, UpdateMe);
-
 		if (CustomNetworkManager.Instance._isServer)
 		{
+			UpdateManager.Add(CallbackType.UPDATE, ServerUpdateMe);
 			cnt.OnTileReached().AddListener(OnTileReached);
 			startPos = transform.position;
 			isServer = true;
-			base.OnEnable();
-			AgentServerStart();
+			registerObj = GetComponent<RegisterObject>();
+			registerObj.WaitForMatrixInit(StartServerAgent);
 		}
+	}
+
+	void StartServerAgent(MatrixInfo info)
+	{
+		AgentServerStart();
 	}
 
 	public override void OnDisable()
@@ -85,8 +91,8 @@ public class MobAgent : Agent
 		if (isServer)
 		{
 			cnt.OnTileReached().RemoveListener(OnTileReached);
+			UpdateManager.Remove(CallbackType.UPDATE, ServerUpdateMe);
 		}
-		UpdateManager.Remove(CallbackType.UPDATE, UpdateMe);
 	}
 
 	protected virtual void OnTileReached(Vector3Int tilePos)
@@ -104,7 +110,7 @@ public class MobAgent : Agent
 
 	/// <summary>
 	/// Called when the mob is performing an action
-	/// </summary>	
+	/// </summary>
 	protected virtual void OnPerformAction()
 	{
 	}
@@ -112,9 +118,9 @@ public class MobAgent : Agent
 	/// <summary>
 	/// Make sure to call base.UpdateMe if overriding
 	/// </summary>
-	protected virtual void UpdateMe()
+	protected virtual void ServerUpdateMe()
 	{
-		if (CustomNetworkManager.Instance._isServer)
+		if (MatrixManager.IsInitialized)
 		{
 			MonitorDecisionMaking();
 		}
@@ -131,10 +137,30 @@ public class MobAgent : Agent
 	void MonitorDecisionMaking()
 	{
 		// Only living mobs have health.  Some like the bots have integrity instead.
-		if (((health != null) && (health.IsDead || health.IsCrit || health.IsCardiacArrest || Pause)) ||
-			((integrity != null) && (integrity.integrity <= 0)))
+		if (health != null) // Living mob
 		{
-			//can't do anything this NPC is not capable of movement
+			if (health.IsDead || health.IsCrit || health.IsCardiacArrest)
+			{
+				// Can't do anything this NPC is not capable of movement
+				return;
+			}
+		}
+		else if (integrity != null) //Bot
+		{
+			if (integrity.integrity <= 0)
+			{
+				// Too damaged to move
+				return;
+			}
+		}
+		else
+		{
+			// Don't do anything without a health or integrity
+			return;
+		}
+
+		if (Pause)
+		{
 			return;
 		}
 
@@ -220,7 +246,7 @@ public class MobAgent : Agent
 						dest, true);
 				if (tryGetDoor)
 				{
-					tryGetDoor.ServerTryOpen(gameObject);
+					tryGetDoor.MobTryOpen(gameObject);
 				}
 			}
 			else

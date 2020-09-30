@@ -35,7 +35,7 @@ public abstract class ServerMessage : GameMessageBase
 		Logger.LogTraceFormat("SentToAllExcept {1}: {0}", Category.NetMessage, this, excluded.name);
 	}
 
-	public void SendTo(GameObject recipient)
+	public virtual void SendTo(GameObject recipient)
 	{
 		if (recipient == null)
 		{
@@ -66,11 +66,8 @@ public abstract class ServerMessage : GameMessageBase
 
 	public void SendTo(NetworkConnection recipient)
 	{
-
-		if (PlayerList.Instance.ContainsConnection(recipient))
-		{
-			recipient.Send(this, 0);
-		}
+		if (recipient == null) return;
+		recipient.Send(this, 0);
 	}
 
 	/// <summary>
@@ -81,7 +78,6 @@ public abstract class ServerMessage : GameMessageBase
 	{
 		var players = PlayerList.Instance.AllPlayers;
 
-		RaycastHit2D hit;
 		LayerMask layerMask = LayerMask.GetMask("Walls", "Door Closed");
 		for (int i = players.Count - 1; i > 0; i--)
 		{

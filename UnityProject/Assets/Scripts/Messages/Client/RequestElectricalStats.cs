@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using Messages.Client;
 using UnityEngine;
 using Utility = UnityEngine.Networking.Utility;
 using Mirror;
@@ -22,7 +23,7 @@ public class RequestElectricalStats : ClientMessage
 			var poweredDevice = NetworkObjects[1].GetComponent<ElectricalOIinheritance>();
 			if (poweredDevice != null)
 			{
-				SendDataToClient(poweredDevice.Data, NetworkObjects[0]);
+				SendDataToClient(poweredDevice.InData.Data, NetworkObjects[0]);
 				return;
 			}
 		}

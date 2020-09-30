@@ -7,6 +7,11 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1973002661359593264, guid: 82223aa9f2653409893db380f44262de,
+        type: 3}
+      propertyPath: bodyPartsCovered
+      value: 240
+      objectReference: {fileID: 0}
     - target: {fileID: 2909197017712554513, guid: 82223aa9f2653409893db380f44262de,
         type: 3}
       propertyPath: m_AssetId
@@ -15,7 +20,7 @@ PrefabInstance:
     - target: {fileID: 3011710637427380133, guid: 82223aa9f2653409893db380f44262de,
         type: 3}
       propertyPath: m_Name
-      value: CookSkirt
+      value: CooksSkirt
       objectReference: {fileID: 0}
     - target: {fileID: 3015227012818907857, guid: 82223aa9f2653409893db380f44262de,
         type: 3}
@@ -93,6 +98,12 @@ PrefabInstance:
       propertyPath: clothData
       value: 
       objectReference: {fileID: 11400000, guid: ecff27d75c16ea14095ec3744793a0e3,
+        type: 2}
+    - target: {fileID: 8975007657035133986, guid: 82223aa9f2653409893db380f44262de,
+        type: 3}
+      propertyPath: PresentSpriteSet
+      value: 
+      objectReference: {fileID: 11400000, guid: 47b143d6bf51e534484e49419e362124,
         type: 2}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 82223aa9f2653409893db380f44262de, type: 3}

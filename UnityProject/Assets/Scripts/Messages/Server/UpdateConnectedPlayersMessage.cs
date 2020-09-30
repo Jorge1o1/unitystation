@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using NUnit.Framework.Internal;
 using UnityEngine;
 using UnityEngine.Experimental.XR;
 
@@ -31,6 +30,7 @@ public class UpdateConnectedPlayersMessage : ServerMessage
 
 		PlayerList.Instance.RefreshPlayerListText();
 		UIManager.Display.jobSelectWindow.GetComponent<GUI_PlayerJobs>().UpdateJobsList();
+		UIManager.Display.preRoundWindow.GetComponent<GUI_PreRoundWindow>().UpdatePlayerCount(Players?.Length ?? 0);
 	}
 
 	public static UpdateConnectedPlayersMessage Send()
@@ -64,11 +64,20 @@ public class UpdateConnectedPlayersMessage : ServerMessage
 				}
 			}
 
+			var tag = "";
+
+			if (PlayerList.Instance.IsAdmin(c.UserId))
+			{
+				tag = "<color=blue>[Admin]</color>";
+			}
+
 			prepareConnectedPlayers.Add(new ClientConnectedPlayer
 			{
+				UserName = c.Username,
 				Name = c.Name,
 				Job = c.Job,
-				PendingSpawn = pendingSpawn
+				PendingSpawn = pendingSpawn,
+				Tag = tag
 			});
 		}
 

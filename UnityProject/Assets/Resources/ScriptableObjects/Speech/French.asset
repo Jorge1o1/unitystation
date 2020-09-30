@@ -14,49 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   activateReplacements: 1
   wordReplaceList:
-  - original: yes
-    replaceWith:
-    - oui
-  - original: no
-    replaceWith:
-    - non
-  - original: I'm
-    replaceWith:
-    - j
-  - original: am
-    replaceWith:
-    - suis
   - original: a
     replaceWith:
     - un
+    - une
+  - original: am
+    replaceWith:
+    - suis
   - original: and
     replaceWith:
     - et
-  - original: the
-    replaceWith:
-    - l'
-  - original: I
-    replaceWith:
-    - j'
-  - original: for
-    replaceWith:
-    - pour
-  - original: with
-    replaceWith:
-    - avec
-  - original: of
-    replaceWith:
-    - de
   - original: assistant
     replaceWith:
     - ravageur
   - original: assistants
     replaceWith:
     - ravageurs
-  - original: baby
-    replaceWith:
-    - enfant
-    - petit baguette
   - original: bad
     replaceWith:
     - mal
@@ -65,9 +38,9 @@ MonoBehaviour:
     - bon voyage
     - adieu
     - au revoir
-  - original: cake
+  - original: bread
     replaceWith:
-    - gateau
+    - baguette
   - original: captain
     replaceWith:
     - capitaine
@@ -79,58 +52,64 @@ MonoBehaviour:
     - brie
     - roquefort
     - camembert
-  - original: cigarette
-    replaceWith:
-    - clope
   - original: cook
     replaceWith:
     - cuisinier
-  - original: dad
-    replaceWith:
-    - papa
+    - "cuisini\xE8re"
   - original: enemy
     replaceWith:
     - silly english dog
+    - ennemi
+    - ennemie
+  - original: for
+    replaceWith:
+    - pour
   - original: friend
     replaceWith:
     - ami
+  - original: friends
+    replaceWith:
+    - amis
   - original: good
     replaceWith:
     - bon
   - original: greytide
     replaceWith:
-    - les gitans
+    - gitans
   - original: greytider
     replaceWith:
-    - les gitans
+    - gitans
   - original: greytiders
     replaceWith:
-    - les gitans
-  - original: hardsuit
-    replaceWith:
-    - burkini
+    - gitans
   - original: hello
     replaceWith:
-    - '''allo'
+    - "'all\xF4"
     - bonjour
     - salut
+  - original: i
+    replaceWith:
+    - je
+  - original: i'm
+    replaceWith:
+    - je suis
   - original: maint
     replaceWith:
-    - les banlieues
-  - original: meat
-    replaceWith:
-    - coq au vin
-    - boeuf
-  - original: mom
-    replaceWith:
-    - maman
+    - banlieues
   - original: my
     replaceWith:
     - mon
+    - ma
+  - original: no
+    replaceWith:
+    - non
   - original: nuke
     replaceWith:
     - grand bombe
     - la baguette ultime
+  - original: of
+    replaceWith:
+    - de
   - original: op
     replaceWith:
     - boche
@@ -155,31 +134,40 @@ MonoBehaviour:
   - original: shitsec
     replaceWith:
     - gendarmerie
-    - les keufs
-  - original: spaghetti
-    replaceWith:
-    - macaroni
+    - keufs
   - original: spicy
     replaceWith:
-    - epice
+    - "\xE9pic\xE9"
+    - "\xE9pic\xE9e"
   - original: thanks
     replaceWith:
     - merci
+  - original: the
+    replaceWith:
+    - les
+    - la
+    - le
   - original: tomato
     replaceWith:
     - tomate
   - original: traitor
     replaceWith:
     - collaborateur
+  - original: very
+    replaceWith:
+    - "tr\xE8s"
   - original: want
     replaceWith:
-    - envie
+    - vouloir
   - original: what's
     replaceWith:
     - quel est
   - original: who's
     replaceWith:
     - qui est
+  - original: with
+    replaceWith:
+    - avec
   - original: why
     replaceWith:
     - porquois
@@ -189,10 +177,12 @@ MonoBehaviour:
   - original: wizard
     replaceWith:
     - sorcier
+  - original: yes
+    replaceWith:
+    - oui
   letterReplaceList: []
   activateAdditions: 0
   probability: 0
   beginning: []
   ending: []
-  unintelligible: 0
   customCode: {fileID: 0}
